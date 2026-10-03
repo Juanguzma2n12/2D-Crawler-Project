@@ -10,16 +10,20 @@ namespace Cainos.PixelArtPlatformer_VillageProps
 
     public class MovingPlatform : MonoBehaviour
     {
-        public float velocityInheritPercent = 0.8f;     
+        public float velocityInheritPercent = 0.8f;
 
-        private List<Transform> onPlatformObjects;
+        //colliders currently on the platform. a body can have several (e.g. a character's body and its ground sensor),
+        //so the body itself is moved, once, instead of each collider's own transform
+        private List<Collider2D> onPlatformColliders;
+        private HashSet<Transform> movedThisStep;
 
         private Vector3 prevPos;
         private Vector2 velocity;
 
         private void Start()
         {
-            onPlatformObjects = new List<Transform>();
+            onPlatformColliders = new List<Collider2D>();
+            movedThisStep = new HashSet<Transform>();
             prevPos = transform.position;
         }
 
@@ -28,33 +32,48 @@ namespace Cainos.PixelArtPlatformer_VillageProps
             velocity = (transform.position - prevPos) / Time.fixedDeltaTime;
             prevPos = transform.position;
 
-            foreach (Transform t in onPlatformObjects)
+            movedThisStep.Clear();
+            foreach (Collider2D c in onPlatformColliders)
             {
-                t.Translate(velocity * Time.fixedDeltaTime);
+                if (c == null || c.attachedRigidbody == null) continue;
+
+                Transform t = c.attachedRigidbody.transform;
+                if (movedThisStep.Add(t)) t.Translate(velocity * Time.fixedDeltaTime);
             }
         }
 
 
         private void OnTriggerEnter2D(Collider2D collision)
         {
-            if (collision.attachedRigidbody && collision.attachedRigidbody.bodyType == RigidbodyType2D.Dynamic)
+            Rigidbody2D rb = collision.attachedRigidbody;
+            if (rb && rb.bodyType == RigidbodyType2D.Dynamic)
             {
-                if (onPlatformObjects.Contains(collision.transform)) return;
+                if (onPlatformColliders.Contains(collision)) return;
 
-                onPlatformObjects.Add(collision.transform);
-                if (collision.attachedRigidbody) collision.attachedRigidbody.linearVelocity -= velocity * velocityInheritPercent;
+                bool bodyAlreadyOn = IsBodyOnPlatform(rb);
+                onPlatformColliders.Add(collision);
+                if (!bodyAlreadyOn) rb.linearVelocity -= velocity * velocityInheritPercent;
             }
         }
 
         private void OnTriggerExit2D(Collider2D collision)
         {
-            if (collision.attachedRigidbody && collision.attachedRigidbody.bodyType == RigidbodyType2D.Dynamic)
+            Rigidbody2D rb = collision.attachedRigidbody;
+            if (rb && rb.bodyType == RigidbodyType2D.Dynamic)
             {
-                if (onPlatformObjects.Contains(collision.transform) == false) return;
-                onPlatformObjects.Remove(collision.transform);
+                if (onPlatformColliders.Remove(collision) == false) return;
 
-                if (collision.attachedRigidbody) collision.attachedRigidbody.linearVelocity += velocity * velocityInheritPercent;
+                if (!IsBodyOnPlatform(rb)) rb.linearVelocity += velocity * velocityInheritPercent;
             }
+        }
+
+        private bool IsBodyOnPlatform(Rigidbody2D rb)
+        {
+            foreach (Collider2D c in onPlatformColliders)
+            {
+                if (c != null && c.attachedRigidbody == rb) return true;
+            }
+            return false;
         }
     }
 }

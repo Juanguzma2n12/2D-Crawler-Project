@@ -19,6 +19,17 @@ namespace Platformer.Gameplay
 
         public bool IsActivated => isActivated;
 
+        // The most recently activated checkpoint; KillZone respawns the player here
+        public static Checkpoint LastActivated { get; private set; }
+
+        public Vector3 RespawnPosition => transform.position + Vector3.up * 0.1f;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            LastActivated = null;
+        }
+
         private void Reset()
         {
             var col = GetComponent<Collider2D>();
@@ -45,6 +56,7 @@ namespace Platformer.Gameplay
         {
             if (isActivated) return;
             isActivated = true;
+            LastActivated = this;
             UpdateVisuals();
 
             if (activateParticles != null)

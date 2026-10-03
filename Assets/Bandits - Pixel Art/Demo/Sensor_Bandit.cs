@@ -19,13 +19,16 @@ public class Sensor_Bandit : MonoBehaviour {
         return m_ColCount > 0;
     }
 
+    // Only solid colliders count as ground; trigger zones (checkpoints, platform sensors, hazards) do not
     void OnTriggerEnter2D(Collider2D other)
     {
+        if (other.isTrigger) return;
         m_ColCount++;
     }
 
     void OnTriggerExit2D(Collider2D other)
     {
+        if (other.isTrigger) return;
         m_ColCount--;
     }
 

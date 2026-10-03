@@ -1,8 +1,10 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Platformer.Gameplay
 {
-    // Put this on the Main Camera. Smoothly follows the target (the Bandit by default).
+    // Smoothly follows the target (the Bandit by default).
+    // Adds itself to the Main Camera automatically when a scene with a Bandit loads, so no setup is needed.
     public class CameraFollow2D : MonoBehaviour
     {
         [Header("Target")]
@@ -13,8 +15,32 @@ namespace Platformer.Gameplay
         [Header("Smoothing")]
         [Tooltip("Roughly how many seconds the camera takes to catch up. 0 = locked to target.")]
         [SerializeField] private float smoothTime = 0.15f;
+        [Tooltip("If the target jumps further than this in one frame (teleport, respawn), the camera cuts instead of sliding.")]
+        [SerializeField] private float snapDistance = 12f;
 
         private Vector3 velocity;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void AutoAttach()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            AttachToMainCamera();
+        }
+
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            AttachToMainCamera();
+        }
+
+        private static void AttachToMainCamera()
+        {
+            Camera cam = Camera.main;
+            if (cam == null || cam.GetComponent<CameraFollow2D>() != null) return;
+            if (FindAnyObjectByType<Bandit>() == null) return;
+
+            cam.gameObject.AddComponent<CameraFollow2D>();
+        }
 
         private void Start()
         {
@@ -38,7 +64,15 @@ namespace Platformer.Gameplay
         {
             if (target == null) return;
 
-            transform.position = Vector3.SmoothDamp(transform.position, GetDesiredPosition(), ref velocity, smoothTime);
+            Vector3 desired = GetDesiredPosition();
+            if ((desired - transform.position).sqrMagnitude > snapDistance * snapDistance)
+            {
+                transform.position = desired;
+                velocity = Vector3.zero;
+                return;
+            }
+
+            transform.position = Vector3.SmoothDamp(transform.position, desired, ref velocity, smoothTime);
         }
 
         private Vector3 GetDesiredPosition()
